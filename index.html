@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scheduling App</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-light: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --blue: #3b82f6;
+    --red: #ef4444;
+    --purple: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 22px; }
+  header .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .container { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .toolbar .left, .toolbar .right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .week-label { font-weight: 600; font-size: 15px; min-width: 190px; text-align: center; }
+
+  select, input, textarea, button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  button {
+    cursor: pointer;
+    background: var(--accent);
+    border: none;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button.secondary {
+    background: var(--panel-light);
+    color: var(--text);
+  }
+  button.secondary:hover { background: var(--border); }
+  button.danger { background: transparent; color: var(--red); padding: 6px 10px; font-size: 13px; }
+  button.danger:hover { background: rgba(239,68,68,0.1); }
+  button.icon-btn { padding: 8px 10px; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .stat-card .num { font-size: 26px; font-weight: 700; }
+  .stat-card .label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* Calendar grid */
+  .calendar-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: auto;
+  }
+  .calendar {
+    display: grid;
+    grid-template-columns: 64px repeat(7, 1fr);
+    min-width: 900px;
+  }
+  .cal-corner, .day-head {
+    position: sticky;
+    top: 0;
+    background: var(--panel-light);
+    border-bottom: 1px solid var(--border);
+    z-index: 2;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .cal-corner { z-index: 3; }
+  .day-head { border-left: 1px solid var(--border); }
+  .day-head .dow { font-size: 12px; color: var(--muted); }
+  .day-head .dnum { font-size: 16px; font-weight: 700; margin-top: 2px; }
+  .day-head.today .dnum {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+  }
+
+  .time-col { border-right: 1px solid var(--border); }
+  .time-slot {
+    height: 52px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    padding: 2px 8px 0 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    top: -6px;
+  }
+  .day-col {
+    position: relative;
+    border-left: 1px solid var(--border);
+  }
+  .day-col .slot-line {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .day-col .slot-line:hover { background: rgba(99,102,241,0.08); }
+
+  .event-block {
+    position: absolute;
+    left: 3px; right: 3px;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .event-block .ev-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .event-block .ev-time { font-size: 11px; opacity: 0.85; }
+
+  .cat-work { background: rgba(59,130,246,0.25); color: #bfdbfe; border-color: rgba(59,130,246,0.5); }
+  .cat-personal { background: rgba(34,197,94,0.25); color: #bbf7d0; border-color: rgba(34,197,94,0.5); }
+  .cat-health { background: rgba(234,179,8,0.25); color: #fef08a; border-color: rgba(234,179,8,0.5); }
+  .cat-other { background: rgba(167,139,250,0.25); color: #ddd6fe; border-color: rgba(167,139,250,0.5); }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+  .legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .dot.cat-work { background: var(--blue); }
+  .dot.cat-personal { background: var(--green); }
+  .dot.cat-health { background: var(--yellow); }
+  .dot.cat-other { background: var(--purple); }
+
+  /* Agenda list (upcoming) */
+  .section-title { font-size: 14px; font-weight: 700; margin: 28px 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .agenda { display: flex; flex-direction: column; gap: 8px; }
+  .agenda-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+  }
+  .agenda-item .cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .agenda-item .cat-dot.cat-work { background: var(--blue); }
+  .agenda-item .cat-dot.cat-personal { background: var(--green); }
+  .agenda-item .cat-dot.cat-health { background: var(--yellow); }
+  .agenda-item .cat-dot.cat-other { background: var(--purple); }
+  .agenda-item .when { font-size: 12px; color: var(--muted); min-width: 170px; }
+  .agenda-item .title { flex: 1; font-weight: 600; }
+  .empty { text-align: center; color: var(--muted); padding: 30px 20px; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+    padding: 20px;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  }
+  .modal h2 { margin-top: 0; font-size: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .modal-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; }
+  .modal-actions .right-actions { display: flex; gap: 10px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Scheduling App</h1>
+    <div class="sub">Plan your week, one event at a time</div>
+  </div>
+  <button id="newEventBtn">+ New Event</button>
+</header>
+
+<div class="container">
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <div class="left">
+      <button class="secondary icon-btn" id="prevWeekBtn">&larr;</button>
+      <button class="secondary" id="todayBtn">Today</button>
+      <button class="secondary icon-btn" id="nextWeekBtn">&rarr;</button>
+      <div class="week-label" id="weekLabel"></div>
+    </div>
+    <div class="right legend">
+      <span><span class="dot cat-work"></span>Work</span>
+      <span><span class="dot cat-personal"></span>Personal</span>
+      <span><span class="dot cat-health"></span>Health</span>
+      <span><span class="dot cat-other"></span>Other</span>
+    </div>
+  </div>
+
+  <div class="calendar-wrap">
+    <div class="calendar" id="calendar"></div>
+  </div>
+
+  <div class="section-title">Upcoming</div>
+  <div class="agenda" id="agenda"></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">New Event</h2>
+    <form id="eventForm">
+      <input type="hidden" id="eventId">
+      <div class="field">
+        <label>Title</label>
+        <input type="text" id="fTitle" required placeholder="e.g. Team Standup">
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="fDate" required>
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Start time</label>
+          <input type="time" id="fStart" required>
+        </div>
+        <div class="field">
+          <label>End time</label>
+          <input type="time" id="fEnd" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="fCategory">
+          <option value="work">Work</option>
+          <option value="personal">Personal</option>
+          <option value="health">Health</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="fNotes" placeholder="Optional notes, location, etc."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="danger" id="deleteBtn" style="display:none;">Delete</button>
+        <div class="right-actions">
+          <button type="button" class="secondary" id="cancelBtn">Cancel</button>
+          <button type="submit">Save Event</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "scheduling-app-data-v1";
+const DAY_START = 7;   // 7am
+const DAY_END = 21;    // 9pm
+const SLOT_HEIGHT = 52; // px per hour, matches .time-slot/.slot-line height
+const catLabels = { work: "Work", personal: "Personal", health: "Health", other: "Other" };
+
+function pad(n) { return String(n).padStart(2, "0"); }
+function toDateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function startOfWeek(d) {
+  const date = new Date(d);
+  const day = date.getDay(); // 0 = Sunday
+  date.setDate(date.getDate() - day);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function timeToMinutes(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+function formatTime(t) {
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${pad(m)} ${ampm}`;
+}
+
+function seedEvents() {
+  const today = new Date();
+  const base = startOfWeek(today);
+  const mk = (dayOffset, start, end, title, category, notes) => ({
+    id: "evt-" + Math.random().toString(36).slice(2, 9),
+    date: toDateStr(addDays(base, dayOffset)),
+    start, end, title, category, notes: notes || ""
+  });
+  return [
+    mk(1, "09:00", "09:30", "Team Standup", "work", "Daily sync"),
+    mk(1, "13:00", "14:00", "Client Call", "work", ""),
+    mk(2, "07:30", "08:15", "Morning Run", "health", ""),
+    mk(3, "10:00", "11:30", "Design Review", "work", "Bring mockups"),
+    mk(4, "18:00", "19:00", "Dinner with friends", "personal", ""),
+    mk(5, "09:00", "12:00", "Deep Work Block", "work", "No meetings"),
+  ];
+}
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch (e) { /* fall through to seed */ }
+  }
+  const data = { events: seedEvents() };
+  saveData(data);
+  return data;
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+let data = loadData();
+let viewStart = startOfWeek(new Date());
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function renderStats() {
+  const todayStr = toDateStr(new Date());
+  const weekDays = [...Array(7)].map((_, i) => toDateStr(addDays(viewStart, i)));
+  const todayCount = data.events.filter(e => e.date === todayStr).length;
+  const weekCount = data.events.filter(e => weekDays.includes(e.date)).length;
+  const now = new Date();
+  const upcoming = data.events.filter(e => new Date(`${e.date}T${e.start}`) >= now).length;
+  const total = data.events.length;
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card"><div class="num">${todayCount}</div><div class="label">Today</div></div>
+    <div class="stat-card"><div class="num">${weekCount}</div><div class="label">This Week</div></div>
+    <div class="stat-card"><div class="num">${upcoming}</div><div class="label">Upcoming</div></div>
+    <div class="stat-card"><div class="num">${total}</div><div class="label">Total Events</div></div>
+  `;
+}
+
+function renderWeekLabel() {
+  const end = addDays(viewStart, 6);
+  const opts = { month: "short", day: "numeric" };
+  document.getElementById("weekLabel").textContent =
+    `${viewStart.toLocaleDateString(undefined, opts)} – ${end.toLocaleDateString(undefined, { ...opts, year: "numeric" })}`;
+}
+
+function renderCalendar() {
+  const cal = document.getElementById("calendar");
+  const todayStr = toDateStr(new Date());
+  const hours = [];
+  for (let h = DAY_START; h < DAY_END; h++) hours.push(h);
+
+  let html = `<div class="cal-corner"></div>`;
+  const days = [...Array(7)].map((_, i) => addDays(viewStart, i));
+  days.forEach(d => {
+    const dStr = toDateStr(d);
+    html += `<div class="day-head ${dStr === todayStr ? "today" : ""}">
+      <div class="dow">${d.toLocaleDateString(undefined, { weekday: "short" })}</div>
+      <div class="dnum">${d.getDate()}</div>
+    </div>`;
+  });
+
+  html += `<div class="time-col">` + hours.map(h => `<div class="time-slot">${formatTime(pad(h) + ":00")}</div>`).join("") + `</div>`;
+
+  days.forEach(d => {
+    const dStr = toDateStr(d);
+    const dayEvents = data.events.filter(e => e.date === dStr);
+    let colHtml = `<div class="day-col" data-date="${dStr}">`;
+    colHtml += hours.map(h => `<div class="slot-line" data-hour="${h}"></div>`).join("");
+    dayEvents.forEach(e => {
+      const startMin = timeToMinutes(e.start);
+      const endMin = Math.max(timeToMinutes(e.end), startMin + 15);
+      const top = ((startMin - DAY_START * 60) / 60) * SLOT_HEIGHT;
+      const height = ((endMin - startMin) / 60) * SLOT_HEIGHT;
+      colHtml += `<div class="event-block cat-${e.category}" data-id="${e.id}" style="top:${top}px; height:${height}px;">
+        <div class="ev-title">${escapeHtml(e.title)}</div>
+        <div class="ev-time">${formatTime(e.start)} - ${formatTime(e.end)}</div>
+      </div>`;
+    });
+    colHtml += `</div>`;
+    html += colHtml;
+  });
+
+  cal.innerHTML = html;
+
+  cal.querySelectorAll(".slot-line").forEach(slot => {
+    slot.addEventListener("click", () => {
+      const dayCol = slot.closest(".day-col");
+      const date = dayCol.dataset.date;
+      const hour = Number(slot.dataset.hour);
+      openModal(null, { date, start: `${pad(hour)}:00`, end: `${pad(hour + 1)}:00` });
+    });
+  });
+  cal.querySelectorAll(".event-block").forEach(block => {
+    block.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openModal(block.dataset.id);
+    });
+  });
+}
+
+function renderAgenda() {
+  const now = new Date();
+  const upcoming = data.events
+    .filter(e => new Date(`${e.date}T${e.start}`) >= now || toDateStr(new Date(e.date)) === toDateStr(now))
+    .sort((a, b) => new Date(`${a.date}T${a.start}`) - new Date(`${b.date}T${b.start}`))
+    .slice(0, 8);
+
+  const agenda = document.getElementById("agenda");
+  if (!upcoming.length) {
+    agenda.innerHTML = `<div class="empty">No upcoming events. Add one to get started.</div>`;
+    return;
+  }
+  agenda.innerHTML = upcoming.map(e => {
+    const dateObj = new Date(e.date + "T00:00:00");
+    const dateStr = dateObj.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    return `<div class="agenda-item" data-id="${e.id}">
+      <span class="cat-dot cat-${e.category}"></span>
+      <span class="when">${dateStr}, ${formatTime(e.start)}</span>
+      <span class="title">${escapeHtml(e.title)}</span>
+    </div>`;
+  }).join("");
+
+  agenda.querySelectorAll(".agenda-item").forEach(item => {
+    item.addEventListener("click", () => openModal(item.dataset.id));
+  });
+}
+
+function renderAll() {
+  renderStats();
+  renderWeekLabel();
+  renderCalendar();
+  renderAgenda();
+}
+
+function openModal(id, prefill) {
+  const overlay = document.getElementById("overlay");
+  const form = document.getElementById("eventForm");
+  form.reset();
+  const deleteBtn = document.getElementById("deleteBtn");
+
+  if (id) {
+    const e = data.events.find(ev => ev.id === id);
+    document.getElementById("modalTitle").textContent = "Edit Event";
+    document.getElementById("eventId").value = e.id;
+    document.getElementById("fTitle").value = e.title;
+    document.getElementById("fDate").value = e.date;
+    document.getElementById("fStart").value = e.start;
+    document.getElementById("fEnd").value = e.end;
+    document.getElementById("fCategory").value = e.category;
+    document.getElementById("fNotes").value = e.notes || "";
+    deleteBtn.style.display = "inline-block";
+  } else {
+    document.getElementById("modalTitle").textContent = "New Event";
+    document.getElementById("eventId").value = "";
+    if (prefill) {
+      document.getElementById("fDate").value = prefill.date;
+      document.getElementById("fStart").value = prefill.start;
+      document.getElementById("fEnd").value = prefill.end;
+    } else {
+      document.getElementById("fDate").value = toDateStr(new Date());
+    }
+    deleteBtn.style.display = "none";
+  }
+  overlay.classList.add("open");
+  document.getElementById("fTitle").focus();
+}
+
+function closeModal() { document.getElementById("overlay").classList.remove("open"); }
+
+function deleteEvent(id) {
+  if (!confirm("Delete this event?")) return;
+  data.events = data.events.filter(e => e.id !== id);
+  saveData(data);
+  closeModal();
+  renderAll();
+}
+
+document.getElementById("newEventBtn").addEventListener("click", () => openModal(null));
+document.getElementById("cancelBtn").addEventListener("click", closeModal);
+document.getElementById("deleteBtn").addEventListener("click", () => {
+  const id = document.getElementById("eventId").value;
+  if (id) deleteEvent(id);
+});
+document.getElementById("overlay").addEventListener("click", (e) => {
+  if (e.target.id === "overlay") closeModal();
+});
+
+document.getElementById("prevWeekBtn").addEventListener("click", () => {
+  viewStart = addDays(viewStart, -7);
+  renderAll();
+});
+document.getElementById("nextWeekBtn").addEventListener("click", () => {
+  viewStart = addDays(viewStart, 7);
+  renderAll();
+});
+document.getElementById("todayBtn").addEventListener("click", () => {
+  viewStart = startOfWeek(new Date());
+  renderAll();
+});
+
+document.getElementById("eventForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const id = document.getElementById("eventId").value;
+  const start = document.getElementById("fStart").value;
+  const end = document.getElementById("fEnd").value;
+  if (timeToMinutes(end) <= timeToMinutes(start)) {
+    alert("End time must be after start time.");
+    return;
+  }
+  const event = {
+    id: id || "evt-" + Math.random().toString(36).slice(2, 9),
+    title: document.getElementById("fTitle").value.trim(),
+    date: document.getElementById("fDate").value,
+    start, end,
+    category: document.getElementById("fCategory").value,
+    notes: document.getElementById("fNotes").value.trim()
+  };
+  if (id) {
+    const idx = data.events.findIndex(ev => ev.id === id);
+    data.events[idx] = event;
+  } else {
+    data.events.push(event);
+  }
+  saveData(data);
+  closeModal();
+  renderAll();
+});
+
+renderAll();
+</script>
+</body>
+</html>
